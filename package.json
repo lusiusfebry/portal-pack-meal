@@ -1,0 +1,31 @@
+{
+  "name": "bebang-pack-meal-portal",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install --workspaces",
+    "dev": "concurrently -c \"blue,green\" -n \"backend,frontend\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run -w backend start:dev",
+    "dev:frontend": "npm run -w frontend dev",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "npm run -w backend build",
+    "build:frontend": "npm run -w frontend build",
+    "lint": "npm run -w backend lint && npm run -w frontend lint",
+    "lint:fix": "npm exec -w backend eslint \"src/**/*.{ts,tsx}\" --fix && npm run -w frontend lint:fix",
+    "format": "npm exec -w backend prettier --write . && npm run -w frontend format",
+    "format:check": "npm exec -w backend prettier --check . && npm run -w frontend format:check",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "husky": "^9.1.6"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
