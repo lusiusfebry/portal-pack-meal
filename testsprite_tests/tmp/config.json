@@ -1,0 +1,19 @@
+{
+  "status": "commited",
+  "type": "backend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "backendAuthType": "basic token",
+  "backendUsername": "ADM001",
+  "backendPassword": "admin123",
+  "executionArgs": {
+    "projectName": "portal-pack-meal",
+    "projectPath": "c:\\project-it\\portal-pack-meal",
+    "testIds": [],
+    "additionalInstruction": "",
+    "envs": {
+      "API_KEY": "sk-user-jh019I_tyyxibumT4znrLfJvumIZCRUGR0BikusTOt8acQccIz6Mq-94enrjDUWbPYTeq4t-Nlj6rpmfoOtkklxPcrB8iGEZnbSdMufAzR8iMYJ3J59_lM28LvYs23fEhNI"
+    }
+  },
+  "proxy": "http://ba3e8c66-ba59-4154-a9c9-274fc43479bc:b2lZzwKpvS0BeOAVqLqwT6RKPJfLb3pI@tun.testsprite.com:8080"
+}

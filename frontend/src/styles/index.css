@@ -1,0 +1,90 @@
+/* Google Fonts import (Inter, Poppins) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap');
+
+/* Tailwind layer imports */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base layer defaults (fonts, headings, scrolling) */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', 'Inter', system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+}
+
+/* Global focus-visible outline for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid theme('colors.primary.500');
+  outline-offset: 2px;
+}
+
+/* Base styles */
+:root {
+  color-scheme: light dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Utility font families aligned with Tailwind config */
+.font-sans {
+  font-family: 'Inter', system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+.font-display {
+  font-family: 'Poppins', 'Inter', system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Selection color */
+::selection {
+  background-color: #10B981;
+  color: white;
+}
+
+/* Default link style */
+a {
+  @apply text-primary hover:text-primary-600;
+}
+
+/* Containers */
+.container {
+  @apply mx-auto px-4;
+}
+
+/* Utilities */
+@layer utilities {
+  /* Hide scrollbars cross-browser */
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+}

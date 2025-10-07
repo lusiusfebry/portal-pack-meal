@@ -1,0 +1,16 @@
+{
+  "name": "Bebang Pack Meal Portal",
+  "short_name": "BPM Portal",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10B981",
+  "description": "Operational portal for Bebang Pack Meal with real-time updates and PWA capabilities.",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/favicon.svg", "sizes": "64x64", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "login with valid and invalid credentials",
+    "description": "Test the /auth/login endpoint with valid NIK and password to ensure successful login and token issuance. Also test with invalid credentials to verify proper 401 Unauthorized response."
+  },
+  {
+    "id": "TC002",
+    "title": "refresh jwt tokens with valid and invalid refresh token",
+    "description": "Test the /auth/refresh endpoint by providing a valid refresh token to receive new access and refresh tokens. Also test with an invalid or expired refresh token to ensure 401 Unauthorized response."
+  },
+  {
+    "id": "TC003",
+    "title": "logout current session successfully",
+    "description": "Test the /auth/logout endpoint to ensure the current user session is properly terminated and logout success response is returned."
+  },
+  {
+    "id": "TC004",
+    "title": "get current user profile with valid and invalid token",
+    "description": "Test the /auth/me endpoint to retrieve the current logged-in user's profile details with a valid JWT token. Also test without or with invalid token to verify 401 Unauthorized response."
+  },
+  {
+    "id": "TC005",
+    "title": "list users with administrator role",
+    "description": "Test the GET /users endpoint to retrieve a list of users, ensuring only administrators can access this endpoint and the response contains user data."
+  },
+  {
+    "id": "TC006",
+    "title": "create new user with valid data and handle conflicts",
+    "description": "Test the POST /users endpoint to create a new user with valid data, and verify that creating a user with duplicate unique fields returns a 409 Conflict response."
+  },
+  {
+    "id": "TC007",
+    "title": "update user status with valid id and role",
+    "description": "Test the PATCH /users/{id}/status endpoint to update the status of a user by ID, ensuring only administrators can perform this action and the status is updated correctly."
+  },
+  {
+    "id": "TC008",
+    "title": "list departments and create new department",
+    "description": "Test the GET /master-data/departments endpoint to list all departments. Test the POST /master-data/departments endpoint to create a new department and handle conflict if the department already exists."
+  },
+  {
+    "id": "TC009",
+    "title": "list orders and create new order",
+    "description": "Test the GET /orders endpoint to list orders with role-based filtering. Test the POST /orders endpoint to create a new order and verify the order lifecycle status and notifications."
+  },
+  {
+    "id": "TC010",
+    "title": "get consumption report data",
+    "description": "Test the GET /reports/consumption endpoint to retrieve consumption report data, ensuring the response is correct and accessible by authorized roles."
+  }
+]

@@ -10,6 +10,7 @@
     "moduleResolution": "node",
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": "./src",
     "baseUrl": "./",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -18,8 +19,21 @@
     "noPropertyAccessFromIndexSignature": false,
     "noImplicitReturns": false,
     "skipLibCheck": true,
-    "types": ["node", "jest"]
+    "types": [
+      "node",
+      "jest"
+    ],
+    "incremental": false,
+    "composite": false,
+    "noEmit": false
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "**/*.spec.ts"
+  ]
 }

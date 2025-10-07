@@ -7,7 +7,7 @@
     "frontend"
   ],
   "scripts": {
-    "install:all": "npm install --workspaces",
+    "install:all": "npm install",
     "dev": "concurrently -c \"blue,green\" -n \"backend,frontend\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run -w backend start:dev",
     "dev:frontend": "npm run -w frontend dev",
@@ -18,9 +18,32 @@
     "lint:fix": "npm exec -w backend eslint \"src/**/*.{ts,tsx}\" --fix && npm run -w frontend lint:fix",
     "format": "npm exec -w backend prettier --write . && npm run -w frontend format",
     "format:check": "npm exec -w backend prettier --check . && npm run -w frontend format:check",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report",
+    "test:e2e:codegen": "playwright codegen http://localhost:5173",
+    "start:prod": "concurrently -c \"blue,green\" -n \"backend,frontend\" \"npm run start:prod:backend\" \"npm run start:prod:frontend\"",
+    "start:prod:backend": "npm run -w backend start",
+    "start:prod:frontend": "npm run -w frontend preview",
+    "typecheck": "npm run -w backend typecheck && npm run -w frontend typecheck",
+    "activate-user": "node ./activate-user.js",
+    "diagnose-user": "node ./activate-user.js --diagnose",
+    "reset-user": "node ./activate-user.js --reset",
+
+    
+    "db:cleanup": "node ./scripts/db-tools/db-cleanup.js",
+    "db:cleanup:dry": "node ./scripts/db-tools/db-cleanup.js --dry-run",
+    "db:cleanup:patterns": "node ./scripts/db-tools/db-cleanup.js --delete-master patterns --yes",
+    "db:cleanup:unreferenced": "node ./scripts/db-tools/db-cleanup.js --delete-master unreferenced --yes",
+    "db:cleanup:all": "node ./scripts/db-tools/db-cleanup.js --delete-master all --yes",
+    "db:restore": "node ./scripts/db-tools/db-restore.js",
+    "db:verify": "node ./scripts/db-tools/db-verify.js",
+    "db:verify:details": "node ./scripts/db-tools/db-verify.js --details"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.1",
     "concurrently": "^8.2.2",
     "husky": "^9.1.6"
   },

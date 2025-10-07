@@ -1,0 +1,798 @@
+{
+  "meta": {
+    "project": "Bebang Pack Meal Portal",
+    "date": "2025-10-04",
+    "prepared_by": "Kilo Code"
+  },
+  "product_overview": "Bebang Pack Meal Portal adalah platform digital terintegrasi yang mengelola seluruh alur operasional pack meal mulai dari pemesanan oleh karyawan, produksi oleh dapur, distribusi melalui delivery, hingga pengawasan oleh administrator. Portal ini menyediakan automasi proses, notifikasi real-time, dan laporan analitik untuk efisiensi dan kepatuhan bisnis.",
+  "core_goals": [
+    "Mengotomatisasi alur operasional pack meal dari pemesanan hingga distribusi.",
+    "Menyediakan visibilitas status pesanan real-time untuk semua peran pengguna.",
+    "Memperkuat keamanan dan kontrol akses melalui autentikasi JWT dan RBAC.",
+    "Menyediakan workflow persetujuan untuk pengelolaan perubahan pesanan.",
+    "Memberikan laporan dan audit trail lengkap untuk analitik dan kepatuhan.",
+    "Mendukung penggunaan offline dan pengalaman mobile-friendly dengan PWA."
+  ],
+  "key_features": [
+    "JWT-based authentication dengan login, refresh token, dan logout.",
+    "Manajemen pengguna dengan CRUD, role, status, dan reset password oleh administrator.",
+    "Manajemen master data meliputi departemen, jabatan, shift, dan lokasi.",
+    "Sistem manajemen pesanan dengan status lifecycle dan notifikasi real-time.",
+    "Workflow persetujuan permintaan perubahan dan penolakan pesanan.",
+    "Dashboard khusus per peran dengan informasi dan akses fitur utama.",
+    "Pelaporan konsumsi, performa, dan audit trail dengan export data.",
+    "Integrasi WebSocket untuk notifikasi real-time dan event handling.",
+    "PWA dengan offline support, IndexedDB, dan sinkronisasi data."
+  ],
+  "user_flow_summary": [
+    "Employee melakukan login dengan NIK dan password.",
+    "Employee membuat pesanan pack meal memilih shift dan jumlah.",
+    "Sistem mengirimkan notifikasi pesanan baru ke dapur.",
+    "Dapur melihat antrian dan memperbarui status pesanan.",
+    "Jika perlu, dapur dapat mengajukan penolakan atau perubahan pesanan.",
+    "Administrator meninjau permintaan perubahan dan menyetujui atau menolak.",
+    "Delivery melihat pesanan siap antar dan mengupdate status delivery.",
+    "Semua status dan kegiatan terekam di audit trail dan laporan.",
+    "Pengguna dapat mengakses dashboard sesuai role dengan data relevan.",
+    "Frontend mendukung offline dan notifikasi real-time melalui WebSocket."
+  ],
+  "validation_criteria": [
+    "Sistem harus berhasil menjalankan autentikasi JWT dengan login, refresh token, dan logout tanpa error.",
+    "CRUD dan update status pengguna dapat dilakukan oleh administrator dengan validasi role.",
+    "Master data (departemen, jabatan, shift, lokasi) dapat dikelola melalui API dengan validasi data dan relasi.",
+    "Proses pemesanan dan update status pesanan terjadi sesuai lifecycle dengan notifikasi real-time terkirim ke user terkait.",
+    "Workflow persetujuan permintaan perubahan berfungsi dengan notifikasi dan keputusan terekam.",
+    "Dashboard menampilkan data yang sesuai per role dan memungkinkan akses fitur kunci.",
+    "Laporan konsumsi, performa, dan audit trail dapat diakses, difilter, dan diekspor.",
+    "WebSocket connection stabil dengan recovery dan notifikasi real-time berjalan efektif.",
+    "Aplikasi frontend berfungsi sebagai PWA dengan dukungan offline, caching, dan sinkronisasi data saat online kembali.",
+    "Sistem memenuhi kebutuhan performa, keamanan, dan aksesibilitas sesuai standar yang telah ditetapkan."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "TypeScript 5",
+      "NestJS 10",
+      "React 18",
+      "Vite 7",
+      "PostgreSQL 14",
+      "Prisma ORM 5",
+      "Socket.IO",
+      "JWT",
+      "Tailwind CSS 3",
+      "Zustand 4",
+      "Playwright",
+      "date-fns",
+      "Headless UI",
+      "Heroicons"
+    ],
+    "features": [
+      {
+        "name": "Authentication",
+        "description": "JWT-based authentication with login, refresh token, logout, and current user profile retrieval.",
+        "files": [
+          "backend/src/auth/auth.controller.ts",
+          "backend/src/auth/auth.service.ts",
+          "backend/src/auth/dto/login.dto.ts",
+          "backend/src/auth/strategies/jwt.strategy.ts",
+          "backend/src/auth/strategies/jwt-refresh.strategy.ts",
+          "backend/src/common/interfaces/jwt-payload.interface.ts",
+          "backend/src/main.ts"
+        ],
+        "api_doc": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Bebang Pack Meal Portal API - Authentication",
+            "version": "1.0.0"
+          },
+          "servers": [
+            {
+              "url": "http://localhost:3000/api"
+            }
+          ],
+          "paths": {
+            "/auth/login": {
+              "post": {
+                "summary": "Login with NIK and password",
+                "requestBody": {
+                  "required": true,
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/LoginRequest"
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Login successful",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "$ref": "#/components/schemas/LoginResponse"
+                        }
+                      }
+                    }
+                  },
+                  "401": {
+                    "description": "Invalid credentials"
+                  }
+                }
+              }
+            },
+            "/auth/refresh": {
+              "post": {
+                "summary": "Refresh JWT tokens",
+                "responses": {
+                  "200": {
+                    "description": "New access and refresh tokens",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "$ref": "#/components/schemas/LoginResponse"
+                        }
+                      }
+                    }
+                  },
+                  "401": {
+                    "description": "Invalid refresh token"
+                  }
+                }
+              }
+            },
+            "/auth/logout": {
+              "post": {
+                "summary": "Logout current session",
+                "responses": {
+                  "200": {
+                    "description": "Logout success"
+                  }
+                }
+              }
+            },
+            "/auth/me": {
+              "get": {
+                "summary": "Get current user profile",
+                "responses": {
+                  "200": {
+                    "description": "Profile details",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "$ref": "#/components/schemas/UserSafe"
+                        }
+                      }
+                    }
+                  },
+                  "401": {
+                    "description": "Unauthorized"
+                  }
+                }
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "LoginRequest": {
+                "type": "object",
+                "properties": {
+                  "nik": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "nik",
+                  "password"
+                ]
+              },
+              "UserSafe": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "username": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "administrator",
+                      "employee",
+                      "dapur",
+                      "delivery"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "id",
+                  "username",
+                  "role",
+                  "createdAt"
+                ]
+              },
+              "LoginResponse": {
+                "type": "object",
+                "properties": {
+                  "accessToken": {
+                    "type": "string"
+                  },
+                  "refreshToken": {
+                    "type": "string"
+                  },
+                  "user": {
+                    "$ref": "#/components/schemas/UserSafe"
+                  }
+                },
+                "required": [
+                  "accessToken",
+                  "refreshToken",
+                  "user"
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Users Management",
+        "description": "Administrator CRUD and operations on users including listing, creation, status update, role update, password reset, and profile update.",
+        "files": [
+          "backend/src/users/users.controller.ts",
+          "backend/src/users/users.service.ts",
+          "backend/src/users/dto/create-user.dto.ts",
+          "backend/src/users/dto/update-user-status.dto.ts",
+          "backend/src/users/dto/update-user-role.dto.ts",
+          "backend/src/users/dto/update-user-profile.dto.ts"
+        ],
+        "api_doc": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Users API",
+            "version": "1.0.0"
+          },
+          "servers": [
+            {
+              "url": "http://localhost:3000/api"
+            }
+          ],
+          "paths": {
+            "/users": {
+              "get": {
+                "summary": "List users",
+                "responses": {
+                  "200": {
+                    "description": "Array of users"
+                  }
+                }
+              },
+              "post": {
+                "summary": "Create user",
+                "requestBody": {
+                  "required": true
+                },
+                "responses": {
+                  "201": {
+                    "description": "User created"
+                  },
+                  "409": {
+                    "description": "Conflict"
+                  }
+                }
+              }
+            },
+            "/users/{id}": {
+              "get": {
+                "summary": "Get user details by ID",
+                "parameters": [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "description": "User detail"
+                  },
+                  "404": {
+                    "description": "Not found"
+                  }
+                }
+              }
+            },
+            "/users/{id}/status": {
+              "patch": {
+                "summary": "Update user status",
+                "parameters": [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "description": "Status updated"
+                  }
+                }
+              }
+            },
+            "/users/{id}/role": {
+              "patch": {
+                "summary": "Update user role",
+                "parameters": [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "description": "Role updated"
+                  }
+                }
+              }
+            },
+            "/users/{id}/reset-password": {
+              "post": {
+                "summary": "Reset user password",
+                "parameters": [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "description": "Password reset success"
+                  }
+                }
+              }
+            },
+            "/users/{id}/profile": {
+              "patch": {
+                "summary": "Update user profile",
+                "parameters": [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "description": "Profile updated"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Master Data",
+        "description": "CRUD for master data entities: departments, jabatan (positions), shifts, and lokasi.",
+        "files": [
+          "backend/src/master-data/master-data.controller.ts",
+          "backend/src/master-data/master-data.service.ts",
+          "backend/src/master-data/dto/create-department.dto.ts",
+          "backend/src/master-data/dto/update-department.dto.ts",
+          "backend/src/master-data/dto/create-jabatan.dto.ts",
+          "backend/src/master-data/dto/update-jabatan.dto.ts",
+          "backend/src/master-data/dto/create-shift.dto.ts",
+          "backend/src/master-data/dto/update-shift.dto.ts",
+          "backend/src/master-data/dto/create-lokasi.dto.ts",
+          "backend/src/master-data/dto/update-lokasi.dto.ts"
+        ],
+        "api_doc": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Master Data API",
+            "version": "1.0.0"
+          },
+          "servers": [
+            {
+              "url": "http://localhost:3000/api"
+            }
+          ],
+          "paths": {
+            "/master-data/departments": {
+              "get": {
+                "summary": "List departments",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              },
+              "post": {
+                "summary": "Create department",
+                "responses": {
+                  "201": {
+                    "description": "Created"
+                  },
+                  "409": {
+                    "description": "Conflict"
+                  }
+                }
+              }
+            },
+            "/master-data/departments/{id}": {
+              "patch": {
+                "summary": "Update department",
+                "responses": {
+                  "200": {
+                    "description": "Updated"
+                  }
+                }
+              },
+              "delete": {
+                "summary": "Delete department",
+                "responses": {
+                  "200": {
+                    "description": "Deleted"
+                  }
+                }
+              }
+            },
+            "/master-data/jabatan": {
+              "get": {
+                "summary": "List jabatan",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              },
+              "post": {
+                "summary": "Create jabatan",
+                "responses": {
+                  "201": {
+                    "description": "Created"
+                  },
+                  "409": {
+                    "description": "Conflict"
+                  }
+                }
+              }
+            },
+            "/master-data/jabatans": {
+              "get": {
+                "summary": "List jabatans (alt route)",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/master-data/jabatan/{id}": {
+              "patch": {
+                "summary": "Update jabatan",
+                "responses": {
+                  "200": {
+                    "description": "Updated"
+                  }
+                }
+              },
+              "delete": {
+                "summary": "Delete jabatan",
+                "responses": {
+                  "200": {
+                    "description": "Deleted"
+                  }
+                }
+              }
+            },
+            "/master-data/shifts": {
+              "get": {
+                "summary": "List shifts",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              },
+              "post": {
+                "summary": "Create shift",
+                "responses": {
+                  "201": {
+                    "description": "Created"
+                  },
+                  "409": {
+                    "description": "Conflict"
+                  }
+                }
+              }
+            },
+            "/master-data/shifts/{id}": {
+              "patch": {
+                "summary": "Update shift",
+                "responses": {
+                  "200": {
+                    "description": "Updated"
+                  }
+                }
+              },
+              "delete": {
+                "summary": "Delete shift",
+                "responses": {
+                  "200": {
+                    "description": "Deleted"
+                  }
+                }
+              }
+            },
+            "/master-data/lokasi": {
+              "get": {
+                "summary": "List lokasi",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              },
+              "post": {
+                "summary": "Create lokasi",
+                "responses": {
+                  "201": {
+                    "description": "Created"
+                  },
+                  "409": {
+                    "description": "Conflict"
+                  }
+                }
+              }
+            },
+            "/master-data/lokasi/{id}": {
+              "patch": {
+                "summary": "Update lokasi",
+                "responses": {
+                  "200": {
+                    "description": "Updated"
+                  }
+                }
+              },
+              "delete": {
+                "summary": "Delete lokasi",
+                "responses": {
+                  "200": {
+                    "description": "Deleted"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Orders",
+        "description": "Order lifecycle management including status updates and approval workflow.",
+        "files": [
+          "backend/src/orders/orders.controller.ts",
+          "backend/src/orders/orders.service.ts",
+          "backend/src/orders/dto/create-order.dto.ts",
+          "backend/src/orders/dto/update-order-status.dto.ts",
+          "backend/src/orders/dto/reject-order.dto.ts",
+          "backend/src/orders/dto/edit-order.dto.ts",
+          "backend/src/orders/dto/approve-reject-order.dto.ts",
+          "backend/src/orders/dto/query-orders.dto.ts"
+        ],
+        "api_doc": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Orders API",
+            "version": "1.0.0"
+          },
+          "servers": [
+            {
+              "url": "http://localhost:3000/api"
+            }
+          ],
+          "paths": {
+            "/orders": {
+              "get": {
+                "summary": "List orders (role-aware)",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              },
+              "post": {
+                "summary": "Create order",
+                "responses": {
+                  "201": {
+                    "description": "Created"
+                  }
+                }
+              }
+            },
+            "/orders/pending-approvals": {
+              "get": {
+                "summary": "List pending approvals (admin)",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/orders/{id}": {
+              "get": {
+                "summary": "Get order by ID",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  },
+                  "404": {
+                    "description": "Not found"
+                  }
+                }
+              }
+            },
+            "/orders/{id}/status": {
+              "patch": {
+                "summary": "Update order status",
+                "responses": {
+                  "200": {
+                    "description": "Updated"
+                  }
+                }
+              }
+            },
+            "/orders/{id}/request-rejection": {
+              "post": {
+                "summary": "Request rejection (kitchen)",
+                "responses": {
+                  "200": {
+                    "description": "Requested"
+                  }
+                }
+              }
+            },
+            "/orders/{id}/request-edit": {
+              "post": {
+                "summary": "Request edit (kitchen)",
+                "responses": {
+                  "200": {
+                    "description": "Requested"
+                  }
+                }
+              }
+            },
+            "/orders/{id}/approve-reject": {
+              "post": {
+                "summary": "Approve/reject request (admin)",
+                "responses": {
+                  "200": {
+                    "description": "Decision applied"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Reports & Audit Trail",
+        "description": "Reporting endpoints and audit trail queries for analytics and compliance.",
+        "files": [
+          "backend/src/reports/reports.controller.ts",
+          "backend/src/reports/services/reports.service.ts",
+          "backend/src/reports/reports.module.ts",
+          "backend/src/common/services/audit-trail.service.ts"
+        ],
+        "api_doc": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Reports & Audit Trail API",
+            "version": "1.0.0"
+          },
+          "servers": [
+            {
+              "url": "http://localhost:3000/api"
+            }
+          ],
+          "paths": {
+            "/reports/consumption": {
+              "get": {
+                "summary": "Consumption report",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/reports/department": {
+              "get": {
+                "summary": "Department report",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/reports/performance": {
+              "get": {
+                "summary": "Performance report",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/reports/rejections": {
+              "get": {
+                "summary": "Rejections report",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/reports/audit-trail": {
+              "get": {
+                "summary": "Audit trail query",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/reports/audit-trail/order/{kodePesanan}": {
+              "get": {
+                "summary": "Audit trail by order code",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/reports/audit-trail/action-types": {
+              "get": {
+                "summary": "List audit action types",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

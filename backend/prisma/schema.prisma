@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleAccess {
+  administrator
+  employee
+  dapur
+  delivery
+}
+
+enum StatusPesanan {
+  MENUNGGU
+  IN_PROGRESS
+  READY
+  ON_DELIVERY
+  COMPLETE
+  DITOLAK
+  MENUNGGU_PERSETUJUAN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  username     String     @unique @db.VarChar(50)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  role         RoleAccess @map("role_access")
+  createdAt    DateTime   @map("created_at") @default(now()) @db.Timestamptz
+  updatedAt    DateTime   @map("updated_at") @updatedAt @db.Timestamptz
+
+  karyawan     Karyawan?
+
+  @@map("users")
+  @@index([role], name: "idx_users_role")
+  @@index([username], name: "idx_users_username")
+}
+
+model Department {
+  id           Int       @id @default(autoincrement())
+  namaDivisi   String    @map("nama_divisi") @db.VarChar(100)
+  keterangan   String?   @db.Text
+  createdAt    DateTime  @map("created_at") @default(now()) @db.Timestamptz
+  updatedAt    DateTime  @map("updated_at") @updatedAt @db.Timestamptz
+
+  jabatans     Jabatan[]
+  karyawans    Karyawan[]
+  pemesanPesanan Pesanan[] @relation("DepartmentPemesan")
+
+  @@map("master_department")
+  @@unique([namaDivisi], name: "uq_master_department_nama_divisi")
+  @@index([namaDivisi], name: "idx_master_department_nama_divisi")
+}
+
+model Jabatan {
+  id           Int        @id @default(autoincrement())
+  namaJabatan  String     @map("nama_jabatan") @db.VarChar(100)
+  departmentId Int?       @map("department_id")
+  keterangan   String?    @db.Text
+  createdAt    DateTime   @map("created_at") @default(now()) @db.Timestamptz
+  updatedAt    DateTime   @map("updated_at") @updatedAt @db.Timestamptz
+
+  department   Department? @relation(fields: [departmentId], references: [id])
+  karyawans    Karyawan[]
+
+  @@map("master_jabatan")
+  @@index([departmentId], name: "idx_master_jabatan_department_id")
+  @@unique([namaJabatan, departmentId], name: "uq_master_jabatan_nama_department")
+}
+
+model Shift {
+  id           Int       @id @default(autoincrement())
+  namaShift    String    @map("nama_shift") @db.VarChar(50)
+  jamMulai     DateTime  @map("jam_mulai") @db.Time
+  jamSelesai   DateTime  @map("jam_selesai") @db.Time
+  keterangan   String?   @db.Text
+  createdAt    DateTime  @map("created_at") @default(now()) @db.Timestamptz
+  updatedAt    DateTime  @map("updated_at") @updatedAt @db.Timestamptz
+
+  pesanan      Pesanan[]
+
+  @@map("master_shift")
+  @@unique([namaShift], name: "uq_master_shift_nama_shift")
+}
+
+model Karyawan {
+  id                  Int         @id @default(autoincrement())
+  userId              Int?        @unique @map("user_id")
+  nomorIndukKaryawan  String      @unique @map("nomor_induk_karyawan") @db.VarChar(50)
+  namaLengkap         String      @map("nama_lengkap") @db.VarChar(150)
+  departmentId        Int?        @map("department_id")
+  jabatanId           Int?        @map("jabatan_id")
+  roleAccess          RoleAccess  @map("role_access")
+  isActive            Boolean     @default(true) @map("is_active")
+  keterangan          String?     @db.Text
+  createdAt           DateTime    @map("created_at") @default(now()) @db.Timestamptz
+  updatedAt           DateTime    @map("updated_at") @updatedAt @db.Timestamptz
+
+  department          Department? @relation(fields: [departmentId], references: [id])
+  jabatan             Jabatan?    @relation(fields: [jabatanId], references: [id])
+  user                User?       @relation(fields: [userId], references: [id])
+
+  pesananDibuat       Pesanan[]   @relation("KaryawanPemesan")
+  pesananDisetujui    Pesanan[]   @relation("KaryawanApprover")
+
+  auditTrails         AuditTrail[]
+
+  @@map("master_karyawan")
+  @@index([departmentId], name: "idx_master_karyawan_department_id")
+  @@index([jabatanId], name: "idx_master_karyawan_jabatan_id")
+  @@index([roleAccess], name: "idx_master_karyawan_role_access")
+  @@index([isActive], name: "idx_master_karyawan_is_active")
+}
+
+model Pesanan {
+  id                   Int            @id @default(autoincrement())
+  kodePesanan          String         @map("kode_pesanan") @db.VarChar(20)
+  karyawanPemesanId    Int            @map("karyawan_pemesan_id")
+  departmentPemesanId  Int            @map("department_pemesan_id")
+  shiftId              Int            @map("shift_id")
+  jumlahPesanan        Int            @map("jumlah_pesanan")
+  jumlahPesananAwal    Int?           @map("jumlah_pesanan_awal")
+  statusPesanan        StatusPesanan  @map("status_pesanan") @default(MENUNGGU)
+  tanggalPesanan       DateTime       @map("tanggal_pesanan") @db.Date @default(dbgenerated("CURRENT_DATE"))
+  requiresApproval     Boolean        @map("requires_approval") @default(false)
+  approvalStatus       ApprovalStatus? @map("approval_status")
+  catatanDapur         String?        @map("catatan_dapur") @db.Text
+  catatanAdmin         String?        @map("catatan_admin") @db.Text
+  approvedById         Int?           @map("approved_by_id")
+  waktuDibuat          DateTime       @map("waktu_dibuat") @db.Timestamptz @default(now())
+  waktuDiproses        DateTime?      @map("waktu_diproses") @db.Timestamptz
+  waktuSiap            DateTime?      @map("waktu_siap") @db.Timestamptz
+  waktuDiantar         DateTime?      @map("waktu_diantar") @db.Timestamptz
+  waktuSelesai         DateTime?      @map("waktu_selesai") @db.Timestamptz
+
+  pemesan              Karyawan       @relation("KaryawanPemesan", fields: [karyawanPemesanId], references: [id])
+  departemen           Department     @relation("DepartmentPemesan", fields: [departmentPemesanId], references: [id])
+  shift                Shift          @relation(fields: [shiftId], references: [id])
+  approver             Karyawan?      @relation("KaryawanApprover", fields: [approvedById], references: [id])
+
+  @@map("transaction_pesanan")
+  @@unique([kodePesanan], name: "uq_transaction_pesanan_kode_pesanan")
+  @@index([karyawanPemesanId, tanggalPesanan], name: "idx_transaction_pesanan_karyawan_tanggal")
+  @@index([statusPesanan], name: "idx_transaction_pesanan_status")
+  @@index([shiftId, tanggalPesanan], name: "idx_transaction_pesanan_shift_tanggal")
+  @@index([requiresApproval], name: "idx_transaction_pesanan_requires_approval")
+}
+
+model AuditTrail {
+  id        BigInt    @id @default(autoincrement())
+  userId    Int?      @map("user_id")
+  aksi      String    @db.VarChar(255)
+  detail    String?   @db.Text
+  timestamp DateTime  @default(now()) @db.Timestamptz
+
+  user      Karyawan? @relation(fields: [userId], references: [id])
+
+  @@map("log_audit_trail")
+  @@index([userId], name: "idx_log_audit_trail_user_id")
+  @@index([timestamp], name: "idx_log_audit_trail_timestamp")
+}
+
+// ===== Master Data: Lokasi =====
+model Lokasi {
+  id          Int       @id @default(autoincrement())
+  namaLokasi  String    @map("nama_lokasi") @db.VarChar(100)
+  alamat      String    @db.Text
+  keterangan  String?   @db.Text
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @map("created_at") @default(now()) @db.Timestamptz
+  updatedAt   DateTime  @map("updated_at") @updatedAt @db.Timestamptz
+
+  @@map("master_lokasi")
+  @@unique([namaLokasi], name: "uq_master_lokasi_nama_lokasi")
+  @@index([namaLokasi], name: "idx_master_lokasi_nama_lokasi")
+  @@index([isActive], name: "idx_master_lokasi_is_active")
+}

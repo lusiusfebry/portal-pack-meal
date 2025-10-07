@@ -1,0 +1,576 @@
+[
+  {
+    "id": "TC001",
+    "title": "Successful Login with Correct NIK and Password",
+    "description": "Verify that a user can login successfully using valid NIK and password and receive JWT access and refresh tokens.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to login page"
+      },
+      {
+        "type": "action",
+        "description": "Input valid NIK and corresponding password"
+      },
+      {
+        "type": "action",
+        "description": "Click login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Check that login is successful and JWT access and refresh tokens are returned"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Failed Login with Incorrect Password",
+    "description": "Verify that login fails when a user provides an incorrect password for a valid NIK.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to login page"
+      },
+      {
+        "type": "action",
+        "description": "Input valid NIK and incorrect password"
+      },
+      {
+        "type": "action",
+        "description": "Click login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Check that login is rejected with an appropriate error message"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Access Control Verification for Roles",
+    "description": "Verify that users are restricted to access only the dashboard and features permitted by their assigned roles (Administrator, Employee, Dapur, Delivery).",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as each user role"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access pages and APIs not allowed for the role"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access is denied and user is redirected or shown an unauthorized message"
+      },
+      {
+        "type": "action",
+        "description": "Access allowed pages for that role"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access is granted with correct content displayed"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Employee Creates a New Order Successfully",
+    "description": "Verify that an employee can create a new pack meal order by selecting shift, quantity, and receive an automatically generated order code.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Employee"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to create order page"
+      },
+      {
+        "type": "action",
+        "description": "Select a valid shift and specify meal quantity"
+      },
+      {
+        "type": "action",
+        "description": "Submit the order"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify order is created with unique order code and status set to 'pending'"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Dapur Updates Order Status and Rejects Order",
+    "description": "Verify that dapur can view order queue, update order statuses (e.g., in-progress, completed), and submit change requests or reject orders with proper notifications.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Dapur"
+      },
+      {
+        "type": "action",
+        "description": "View order queue dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Select an order and update its status to 'in-progress'"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify status update is reflected in UI and backend"
+      },
+      {
+        "type": "action",
+        "description": "Submit a change request or reject the order with reason"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify notification is sent to Admin and order status changes to pending approval"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Admin Approves or Rejects Order Change Requests",
+    "description": "Verify that Admin can review, approve, or reject order change requests and relevant order statuses and notifications update accordingly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Administrator"
+      },
+      {
+        "type": "action",
+        "description": "Access approval center and list pending order change requests"
+      },
+      {
+        "type": "action",
+        "description": "Approve a pending change request"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify order status updates and notification pushes to related users"
+      },
+      {
+        "type": "action",
+        "description": "Reject another change request with reason"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify order status reflects rejection and notification sent"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Delivery Updates Delivery Status",
+    "description": "Verify that delivery personnel can view assigned delivery list and update order delivery status from 'in transit' to 'completed'.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Delivery role"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to delivery list view"
+      },
+      {
+        "type": "action",
+        "description": "Update delivery status of an assigned order to 'completed'"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify delivery status is updated in the system and reflected on dashboards"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Real-time Notifications via WebSocket",
+    "description": "Verify that users receive real-time notifications for order status changes, approvals, and alerts using WebSocket without connection loss.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Connect to application as any role with active WebSocket"
+      },
+      {
+        "type": "action",
+        "description": "Trigger an order status update from another role or system process"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify notification is received immediately and displayed correctly"
+      },
+      {
+        "type": "action",
+        "description": "Simulate temporary network loss and reconnect"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify WebSocket reconnects automatically and no notifications are missed"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Master Data Management CRUD Operations",
+    "description": "Verify create, read, update, and delete operations for departments, jabatan, shifts, and lokasi with validation and audit trail enabled.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Administrator"
+      },
+      {
+        "type": "action",
+        "description": "Create new master data entries (department, jabatan, shift, lokasi) with valid inputs"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify records are created and visible in lists"
+      },
+      {
+        "type": "action",
+        "description": "Update existing master data entries with valid changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify updates are saved and audit trail records the changes"
+      },
+      {
+        "type": "action",
+        "description": "Attempt invalid data submissions (e.g. blank required fields, duplicate entries)"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validations prevent saving and show appropriate error messages"
+      },
+      {
+        "type": "action",
+        "description": "Delete master data entries if applicable"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify deletion is confirmed and audit trail updated"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Reports Generation and Data Export Functionality",
+    "description": "Verify that Admin can generate consumption, department, performance, and rejection reports with filters and export them in supported formats.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Administrator"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to reports page"
+      },
+      {
+        "type": "action",
+        "description": "Select report type and apply various filter criteria (date ranges, departments, shifts)"
+      },
+      {
+        "type": "action",
+        "description": "Generate the report"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify correct data is displayed and report contents match filters"
+      },
+      {
+        "type": "action",
+        "description": "Export report to Excel or CSV"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify exported file format and data integrity"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Offline Usage and Data Synchronization in PWA",
+    "description": "Verify the Progressive Web Application works offline allowing order viewing and creation, and syncs data correctly when network is restored.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Load the application and install the PWA"
+      },
+      {
+        "type": "action",
+        "description": "Turn off network connectivity to simulate offline mode"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to view existing orders and create a new order"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that offline UI is accessible and order creation is queued/saved locally"
+      },
+      {
+        "type": "action",
+        "description": "Restore network connectivity"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify stored offline actions sync automatically and data updates reflect correctly in backend and UI"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "UI Accessibility and Responsiveness Compliance",
+    "description": "Verify that the user interface meets WCAG 2.1 AA standards, including keyboard navigation, color contrast, screen reader labels, and that the UI is responsive on various screen sizes with dark mode support.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate through all major UI pages using keyboard only"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all interactive elements are reachable and operable via keyboard"
+      },
+      {
+        "type": "action",
+        "description": "Use screen reader to interact with UI components"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all important UI elements have descriptive labels and proper ARIA roles"
+      },
+      {
+        "type": "action",
+        "description": "Test UI color contrast ratios and toggle dark mode"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify contrast meets WCAG standards and dark mode renders correctly without readability issues"
+      },
+      {
+        "type": "action",
+        "description": "Resize browser window or use different device emulators"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI layout adapts responsively without content truncation or overlap"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Audit Trail Records All User Actions",
+    "description": "Verify that all critical user actions such as authentication, order status changes, approvals, and master data modifications are logged with timestamp, user ID, and detailed description.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Perform various actions as different roles: login, create order, change order status, approve change, update master data"
+      },
+      {
+        "type": "action",
+        "description": "As Admin, access audit trail report page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify audit trail lists all performed actions with correct timestamps, user details, and action descriptions"
+      },
+      {
+        "type": "action",
+        "description": "Apply filters on audit trail: by user, action type, date range"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify filtering works as expected and relevant data is displayed"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "API Performance Under Load",
+    "description": "Verify that the backend API response times remain below 500ms for 95% of requests under normal and peak load conditions.",
+    "category": "performance",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate API calls for key endpoints with realistic load using load testing tools"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify 95% of API requests have response times under 500 milliseconds"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Security Validation: Password Hashing and Token Validation",
+    "description": "Verify that passwords are stored with bcrypt hashing and JWT tokens are properly validated and refreshed with correct expiration handling.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Register a new user or update password"
+      },
+      {
+        "type": "assertion",
+        "description": "Check backend database to confirm password is stored hashed (bcrypt) and not in plain text"
+      },
+      {
+        "type": "action",
+        "description": "Perform login and capture JWT access and refresh tokens"
+      },
+      {
+        "type": "assertion",
+        "description": "Use tokens to access protected API endpoints and validate successful authorization"
+      },
+      {
+        "type": "action",
+        "description": "Allow access token to expire, use refresh token to obtain new access token"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify new access token is issued and old access token is invalidated"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Error Handling for Invalid Inputs Across Modules",
+    "description": "Verify that system validates inputs correctly and returns proper error messages for invalid data on authentication, master data, and orders.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Submit login request with missing NIK or password"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validation errors are returned clearly"
+      },
+      {
+        "type": "action",
+        "description": "Create master data entry with empty required fields or invalid formats"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify proper validation error responses"
+      },
+      {
+        "type": "action",
+        "description": "Create new order with invalid shift or meal quantity (e.g., negative or zero)"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify request is rejected with informative error messages"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "User Session Management and Logout",
+    "description": "Verify that users can logout properly, invalidating the current JWT tokens and preventing further access without re-login.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login and obtain JWT tokens"
+      },
+      {
+        "type": "action",
+        "description": "Perform logout action"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify tokens are invalidated server-side if applicable"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access protected resources with previous tokens"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access is denied and user is required to login again"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Order Status Workflow Validation",
+    "description": "Verify that order status transitions follow the defined workflow: creation -> dapur processing -> admin approval (if changes) -> delivery -> completed.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create new order as Employee"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify order status is 'pending'"
+      },
+      {
+        "type": "action",
+        "description": "Update order status to 'in-progress' as Dapur"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify status updates correctly"
+      },
+      {
+        "type": "action",
+        "description": "Submit order changes requiring admin approval"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify order remains in 'pending approval' until admin approves or rejects"
+      },
+      {
+        "type": "action",
+        "description": "Admin approves changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify order proceeds to next status"
+      },
+      {
+        "type": "action",
+        "description": "Delivery marks order as completed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify final status is 'completed'"
+      }
+    ]
+  }
+]
