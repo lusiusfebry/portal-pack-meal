@@ -2,6 +2,50 @@
 
 Tutorial lengkap untuk men-deploy aplikasi Bebang Pack Meal Portal di Windows 10 menggunakan Windows IIS atau Nginx sebagai reverse proxy.
 
+## Network Configuration untuk IP 192.168.3.235/23
+
+### Informasi Network Khusus
+Deployment ini dikonfigurasi khusus untuk server dengan IP address **192.168.3.235/23**:
+
+- **IP Address**: 192.168.3.235
+- **Subnet Mask**: 255.255.254.0 (/23)
+- **Network Range**: 192.168.2.0 - 192.168.3.255 (512 alamat IP)
+- **Gateway**: Biasanya 192.168.2.1 atau 192.168.3.1 (sesuaikan dengan konfigurasi network)
+- **DNS**: Gunakan DNS yang sesuai dengan infrastruktur jaringan Anda
+
+### Verifikasi Network Configuration
+```cmd
+# Cek IP configuration detail
+ipconfig /all
+
+# Test connectivity ke gateway
+ping 192.168.3.1
+ping 192.168.2.1
+
+# Test connectivity ke internet
+ping 8.8.8.8
+ping google.com
+
+# Cek routing table
+route print
+
+# Test konektivitas dalam network range
+ping 192.168.2.1
+ping 192.168.3.254
+```
+
+### Persiapan Network untuk Deployment
+```powershell
+# Set static IP jika belum dikonfigurasi
+# Ganti "Ethernet" dengan nama adapter yang sesuai
+$adapterName = "Ethernet"
+New-NetIPAddress -InterfaceAlias $adapterName -IPAddress "192.168.3.235" -PrefixLength 23 -DefaultGateway "192.168.3.1"
+Set-DnsClientServerAddress -InterfaceAlias $adapterName -ServerAddresses "8.8.8.8", "8.8.4.4"
+
+# Verifikasi konfigurasi
+Get-NetIPConfiguration -InterfaceAlias $adapterName
+```
+
 ## Daftar Isi
 
 1. [Persiapan Sistem](#persiapan-sistem)
@@ -186,6 +230,10 @@ cd bebang-pack-meal
 # Install dependencies
 npm install
 
+# Generate Prisma client (PENTING: harus dilakukan sebelum build backend)
+# Prisma client diperlukan oleh backend untuk akses database
+npm run -w backend prisma generate
+
 # Build backend
 npm run build:backend
 
@@ -196,34 +244,69 @@ npm run build:frontend
 Copy-Item -Path "frontend\dist\*" -Destination "C:\inetpub\wwwroot\bebang-pack-meal\public" -Recurse -Force
 ```
 
-### 6. Configure IIS Site
+**Catatan Penting**: Langkah `prisma generate` sangat penting karena:
+- Backend menggunakan Prisma client untuk akses database
+- Prisma client harus di-generate berdasarkan schema.prisma sebelum kompilasi TypeScript
+- Tanpa generate client, build backend akan gagal karena import Prisma tidak ditemukan
 
-#### Create new site via IIS Manager
+### 6. Configure IIS Site dengan IP Binding Spesifik
+
+#### Create new site via IIS Manager untuk IP 192.168.3.235
 1. Buka IIS Manager
 2. Klik kanan "Sites" → "Add Website"
 3. Isi konfigurasi:
    ```
    Site name: BebangPackMeal
    Physical path: C:\inetpub\wwwroot\bebang-pack-meal
-   Binding: HTTP, Port 80, Host name: localhost
+   Binding: HTTP, Port 80, IP Address: 192.168.3.235
+   Host name: (kosongkan atau isi sesuai kebutuhan)
    ```
 
-#### Configure via PowerShell
+#### Configure via PowerShell dengan IP Spesifik
 ```powershell
 # Import WebAdministration module
 Import-Module WebAdministration
 
-# Create new site
-New-Website -Name "BebangPackMeal" -Port 80 -HostHeader "localhost" -PhysicalPath "C:\inetpub\wwwroot\bebang-pack-meal"
+# Create new site dengan IP binding spesifik untuk 192.168.3.235
+New-Website -Name "BebangPackMeal" -Port 80 -IPAddress "192.168.3.235" -PhysicalPath "C:\inetpub\wwwroot\bebang-pack-meal"
 
-# Create application pool
+# Tambahkan binding alternatif untuk localhost (development/testing)
+New-WebBinding -Name "BebangPackMeal" -Protocol http -Port 8080 -IPAddress "127.0.0.1"
+
+# Tambahkan binding untuk akses dari network range
+New-WebBinding -Name "BebangPackMeal" -Protocol http -Port 80 -IPAddress "*"
+
+# Create application pool dengan konfigurasi optimal untuk production
 New-WebAppPool -Name "BebangPackMealPool"
 Set-ItemProperty -Path "IIS:\AppPools\BebangPackMealPool" -Name processModel.identityType -Value ApplicationPoolIdentity
 Set-ItemProperty -Path "IIS:\AppPools\BebangPackMealPool" -Name enable32BitAppOnWin64 -Value $false
+Set-ItemProperty -Path "IIS:\AppPools\BebangPackMealPool" -Name recycling.periodicRestart.time -Value "00:00:00"
+Set-ItemProperty -Path "IIS:\AppPools\BebangPackMealPool" -Name processModel.idleTimeout -Value "00:00:00"
 
 # Assign application pool to site
 Set-ItemProperty -Path "IIS:\Sites\BebangPackMeal" -Name applicationPool -Value "BebangPackMealPool"
+
+# Verifikasi binding untuk IP spesifik
+Get-WebBinding -Name "BebangPackMeal" | Format-Table
 ```
+
+#### Konfigurasi Manual Binding IP Spesifik
+1. Buka IIS Manager
+2. Expand server node di panel kiri
+3. Expand "Sites"
+4. Klik kanan pada "BebangPackMeal" → "Edit Bindings..."
+5. Klik "Add..." untuk menambah binding baru
+6. Konfigurasi sebagai berikut:
+   - **Type**: http
+   - **IP address**: 192.168.3.235
+   - **Port**: 80
+   - **Host name**: (kosongkan untuk wildcard)
+7. Klik "OK" untuk menyimpan
+8. Untuk HTTPS (opsional):
+   - **Type**: https
+   - **IP address**: 192.168.3.235
+   - **Port**: 443
+   - **SSL certificate**: (pilih certificate yang sesuai)
 
 ### 7. Configure web.config for Backend
 ```xml
@@ -376,21 +459,21 @@ http {
         application/atom+xml
         image/svg+xml;
 
-    # Upstream for Node.js backend
+    # Upstream for Node.js backend dengan IP spesifik
     upstream backend {
-        server 127.0.0.1:3000;
+        server 192.168.3.235:3000;
         keepalive 32;
     }
     
-    # Upstream for WebSocket
+    # Upstream for WebSocket dengan IP spesifik
     upstream websocket {
-        server 127.0.0.1:3001;
+        server 192.168.3.235:3001;
     }
 
-    # HTTP Server
+    # HTTP Server untuk IP spesifik 192.168.3.235
     server {
-        listen 80;
-        server_name localhost bebang-pack-meal.local;
+        listen 192.168.3.235:80;
+        server_name 192.168.3.235 bebang-pack-meal.local;
         root C:/inetpub/wwwroot/bebang-pack-meal/frontend/dist;
         index index.html;
 
@@ -541,14 +624,18 @@ pause
 
 ### 1. Production Environment Variables
 ```powershell
-# Create production environment file
+# Create production environment file dengan konfigurasi IP spesifik
 $envContent = @"
 NODE_ENV=production
 PORT=3000
 WS_PORT=3001
 
-# Database
-DATABASE_URL=postgresql://bebang_user:bebang_password_123@localhost:5432/bebang_pack_meal?schema=public
+# Network Configuration untuk IP 192.168.3.235/23
+BIND_IP=192.168.3.235
+SERVER_IP=192.168.3.235
+
+# Database dengan IP spesifik (jika database di server yang sama)
+DATABASE_URL=postgresql://bebang_user:bebang_password_123@192.168.3.235:5432/bebang_pack_meal?schema=public
 
 # JWT Configuration
 JWT_SECRET=your-super-secure-jwt-secret-key-here-min-32-chars
@@ -556,12 +643,17 @@ JWT_EXPIRES_IN=15m
 JWT_REFRESH_SECRET=your-super-secure-refresh-secret-key-here-min-32-chars
 JWT_REFRESH_EXPIRES_IN=7d
 
-# CORS Configuration
-CORS_ORIGIN=http://localhost,http://localhost:80,http://bebang-pack-meal.local
+# CORS Configuration untuk IP spesifik dan network range
+CORS_ORIGIN=http://192.168.3.235,http://192.168.3.235:80,http://192.168.3.235:8080,http://bebang-pack-meal.local,http://localhost:5173
 
 # Application Settings
 API_PREFIX=api
 LOG_LEVEL=info
+
+# Network Security
+ALLOWED_ORIGINS=http://192.168.3.235,http://192.168.3.235:80,http://192.168.3.235:8080
+ALLOWED_IPS=192.168.2.0/23,127.0.0.1
+TRUST_PROXY=true
 "@
 
 $envContent | Out-File -FilePath "C:\inetpub\wwwroot\bebang-pack-meal\backend\.env" -Encoding UTF8
@@ -584,6 +676,541 @@ npm run prisma:seed
 # Verify database setup
 npm run prisma:studio
 ```
+
+## Prisma Migration & Environment Configuration Detail
+
+### 1. Prisma Migration Comprehensive Guide
+
+#### Migration Commands Reference
+```powershell
+# Navigate to backend directory
+cd "C:\inetpub\wwwroot\bebang-pack-meal\backend"
+
+# Verify Prisma installation
+npx prisma --version
+
+# Validate database schema
+npx prisma validate
+
+# Check current migration status
+npx prisma migrate status
+
+# Apply pending migrations (production)
+npx prisma migrate deploy
+
+# Create new migration (development)
+npx prisma migrate dev --name "descriptive_migration_name"
+
+# Reset database (DANGEROUS - deletes all data!)
+# npx prisma migrate reset --force
+
+# Generate SQL preview of changes
+npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script
+
+# Pull current database schema to Prisma
+npx prisma db pull
+
+# Push schema changes without migration (dev only)
+# npx prisma db push
+```
+
+#### Data Seeding Enhancement
+```powershell
+# Check if seed script exists
+if (Test-Path "prisma\seed.ts") {
+    Write-Host "✓ Seed script found" -ForegroundColor Green
+    
+    # Run seeding
+    npx prisma db seed
+} else {
+    Write-Host "Creating comprehensive seed script..." -ForegroundColor Yellow
+    
+    # Create comprehensive seed script
+    $seedScript = @"
+import { PrismaClient } from '@prisma/client'
+import * as bcrypt from 'bcrypt'
+
+const prisma = new PrismaClient()
+
+async function main() {
+  console.log('Starting database seeding...')
+
+  // Create Departments
+  const departments = [
+    { nama: 'IT', deskripsi: 'Information Technology' },
+    { nama: 'HR', deskripsi: 'Human Resources' },
+    { nama: 'Finance', deskripsi: 'Finance & Accounting' },
+    { nama: 'Operations', deskripsi: 'Operations Management' }
+  ]
+
+  for (const dept of departments) {
+    await prisma.department.upsert({
+      where: { nama: dept.nama },
+      update: {},
+      create: dept
+    })
+  }
+
+  // Create Jabatan
+  const jabatan = [
+    { nama: 'Manager', deskripsi: 'Department Manager' },
+    { nama: 'Staff', deskripsi: 'Regular Staff' },
+    { nama: 'Supervisor', deskripsi: 'Team Supervisor' },
+    { nama: 'Admin', deskripsi: 'Administrator' }
+  ]
+
+  for (const job of jabatan) {
+    await prisma.jabatan.upsert({
+      where: { nama: job.nama },
+      update: {},
+      create: job
+    })
+  }
+
+  // Create Shifts
+  const shifts = [
+    { nama: 'Pagi', jamMulai: '08:00', jamSelesai: '16:00' },
+    { nama: 'Siang', jamMulai: '16:00', jamSelesai: '00:00' },
+    { nama: 'Malam', jamMulai: '00:00', jamSelesai: '08:00' }
+  ]
+
+  for (const shift of shifts) {
+    await prisma.shift.upsert({
+      where: { nama: shift.nama },
+      update: {},
+      create: shift
+    })
+  }
+
+  // Create default users with different roles
+  const users = [
+    {
+      username: 'admin',
+      password: 'admin123',
+      role: 'administrator'
+    },
+    {
+      username: 'kitchen01',
+      password: 'kitchen123',
+      role: 'dapur'
+    },
+    {
+      username: 'delivery01',
+      password: 'delivery123',
+      role: 'delivery'
+    }
+  ]
+
+  for (const user of users) {
+    const hashedPassword = await bcrypt.hash(user.password, 10)
+    
+    await prisma.user.upsert({
+      where: { username: user.username },
+      update: {},
+      create: {
+        username: user.username,
+        passwordHash: hashedPassword,
+        role: user.role
+      }
+    })
+  }
+
+  console.log('Database seeding completed successfully!')
+}
+
+main()
+  .catch((e) => {
+    console.error('Seeding failed:', e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })
+"@
+    
+    $seedScript | Out-File -FilePath "prisma\seed.ts" -Encoding UTF8
+    
+    # Update package.json for seeding if not exists
+    $packageJsonPath = "package.json"
+    $packageJson = Get-Content $packageJsonPath | ConvertFrom-Json
+    
+    if (-not $packageJson.prisma) {
+        $packageJson | Add-Member -NotePropertyName "prisma" -NotePropertyValue @{}
+    }
+    
+    $packageJson.prisma.seed = "tsx prisma/seed.ts"
+    $packageJson | ConvertTo-Json -Depth 10 | Out-File $packageJsonPath -Encoding UTF8
+    
+    Write-Host "✓ Comprehensive seed script created" -ForegroundColor Green
+    
+    # Run the new seed script
+    npx prisma db seed
+}
+```
+
+### 2. Enhanced Backend Environment Configuration
+
+#### Comprehensive .env Configuration
+```powershell
+# Create detailed production environment file
+$envContent = @"
+# ===================================================================
+# BEBANG PACK MEAL PORTAL - BACKEND PRODUCTION CONFIGURATION
+# ===================================================================
+
+# Application Environment
+NODE_ENV=production
+PORT=3000
+WS_PORT=3001
+
+# ===================================================================
+# DATABASE CONFIGURATION
+# ===================================================================
+# Main database connection
+DATABASE_URL=postgresql://bebang_user:bebang_password_123@localhost:5432/bebang_pack_meal?schema=public
+
+# Connection pool settings
+DATABASE_POOL_MIN=2
+DATABASE_POOL_MAX=20
+DATABASE_TIMEOUT=30000
+
+# ===================================================================
+# JWT AUTHENTICATION CONFIGURATION
+# ===================================================================
+# CRITICAL: Replace with secure secrets for production!
+JWT_SECRET=generate-secure-64-char-secret-key-for-production-deployment
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_SECRET=generate-secure-64-char-refresh-secret-key-for-production
+JWT_REFRESH_EXPIRES_IN=7d
+
+# ===================================================================
+# CORS CONFIGURATION
+# ===================================================================
+CORS_ORIGIN=http://localhost,http://localhost:80,https://localhost:443,http://bebang-pack-meal.local
+CORS_CREDENTIALS=true
+
+# ===================================================================
+# APPLICATION SETTINGS
+# ===================================================================
+API_PREFIX=api
+LOG_LEVEL=info
+LOG_FILE=logs/backend.log
+
+# ===================================================================
+# SECURITY CONFIGURATION
+# ===================================================================
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+HELMET_ENABLED=true
+CSP_ENABLED=true
+
+# ===================================================================
+# FILE UPLOAD CONFIGURATION
+# ===================================================================
+MAX_FILE_SIZE=104857600
+UPLOAD_DIR=uploads
+
+# ===================================================================
+# EMAIL CONFIGURATION (Optional)
+# ===================================================================
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@domain.com
+SMTP_PASS=your-app-password
+EMAIL_FROM=Bebang Pack Meal Portal <no-reply@bebang-pack-meal.local>
+
+# ===================================================================
+# MONITORING & HEALTH CHECKS
+# ===================================================================
+HEALTH_CHECK_ENABLED=true
+HEALTH_CHECK_ENDPOINT=/health
+METRICS_ENABLED=true
+
+# ===================================================================
+# BACKUP CONFIGURATION
+# ===================================================================
+BACKUP_ENABLED=true
+BACKUP_SCHEDULE=0 2 * * *
+BACKUP_RETENTION_DAYS=30
+
+# ===================================================================
+# WEBSOCKET CONFIGURATION
+# ===================================================================
+WS_CORS_ORIGIN=http://localhost:5173,http://localhost,https://localhost
+WS_TRANSPORTS=websocket,polling
+
+# ===================================================================
+# PRISMA CONFIGURATION
+# ===================================================================
+PRISMA_QUERY_ENGINE_LIBRARY=query_engine
+PRISMA_CLI_QUERY_ENGINE_TYPE=library
+"@
+
+$envContent | Out-File -FilePath "C:\inetpub\wwwroot\bebang-pack-meal\backend\.env" -Encoding UTF8
+Write-Host "✓ Comprehensive backend environment file created" -ForegroundColor Green
+```
+
+#### JWT Secret Generation
+```powershell
+# Generate cryptographically secure JWT secrets
+Write-Host "Generating secure JWT secrets..." -ForegroundColor Cyan
+
+$jwtSecret = node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+$jwtRefreshSecret = node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+
+Write-Host "Generated JWT secrets:" -ForegroundColor Green
+Write-Host "JWT_SECRET=$jwtSecret" -ForegroundColor Gray
+Write-Host "JWT_REFRESH_SECRET=$jwtRefreshSecret" -ForegroundColor Gray
+
+# Update .env file with generated secrets
+$envFile = "C:\inetpub\wwwroot\bebang-pack-meal\backend\.env"
+(Get-Content $envFile) | ForEach-Object {
+    $_ -replace "JWT_SECRET=generate-secure-64-char-secret-key-for-production-deployment", "JWT_SECRET=$jwtSecret" `
+       -replace "JWT_REFRESH_SECRET=generate-secure-64-char-refresh-secret-key-for-production", "JWT_REFRESH_SECRET=$jwtRefreshSecret"
+} | Set-Content $envFile
+
+Write-Host "✓ Environment file updated with secure secrets" -ForegroundColor Green
+```
+
+### 3. Enhanced Frontend Environment Configuration
+
+#### Comprehensive Frontend .env.production
+```powershell
+# Navigate to frontend directory
+cd "C:\inetpub\wwwroot\bebang-pack-meal\frontend"
+
+# Create comprehensive frontend environment
+$frontendEnv = @"
+# ===================================================================
+# BEBANG PACK MEAL PORTAL - FRONTEND PRODUCTION CONFIGURATION
+# ===================================================================
+
+# Application Environment
+VITE_NODE_ENV=production
+
+# ===================================================================
+# API CONFIGURATION
+# ===================================================================
+VITE_API_BASE_URL=http://localhost/api
+VITE_WS_URL=ws://localhost:3001
+VITE_API_TIMEOUT=30000
+
+# ===================================================================
+# APPLICATION METADATA
+# ===================================================================
+VITE_APP_NAME=Bebang Pack Meal Portal
+VITE_APP_SHORT_NAME=BPM Portal
+VITE_APP_VERSION=1.0.0
+VITE_APP_DESCRIPTION=Portal untuk mengelola alur pack meal end-to-end
+VITE_COMPANY_NAME=Bebang Corporation
+
+# ===================================================================
+# THEME CONFIGURATION
+# ===================================================================
+VITE_DEFAULT_THEME=light
+VITE_THEME_STORAGE_KEY=bebang-theme
+VITE_PRIMARY_COLOR=#10B981
+VITE_SECONDARY_COLOR=#FBBF24
+
+# ===================================================================
+# FEATURE FLAGS
+# ===================================================================
+VITE_ENABLE_PWA=true
+VITE_ENABLE_OFFLINE_MODE=true
+VITE_ENABLE_NOTIFICATIONS=true
+VITE_ENABLE_ANALYTICS=false
+VITE_ENABLE_DEBUG_MODE=false
+
+# ===================================================================
+# PWA CONFIGURATION
+# ===================================================================
+VITE_PWA_ENABLED=true
+VITE_PWA_UPDATE_STRATEGY=prompt
+VITE_PWA_CACHE_STRATEGY=networkFirst
+
+# ===================================================================
+# SECURITY CONFIGURATION
+# ===================================================================
+VITE_CSP_ENABLED=true
+VITE_SECURE_HEADERS=true
+
+# ===================================================================
+# PERFORMANCE CONFIGURATION
+# ===================================================================
+VITE_ENABLE_LAZY_LOADING=true
+VITE_ENABLE_IMAGE_OPTIMIZATION=true
+VITE_ENABLE_TREE_SHAKING=true
+
+# ===================================================================
+# AUTHENTICATION CONFIGURATION
+# ===================================================================
+VITE_TOKEN_STORAGE_TYPE=localStorage
+VITE_TOKEN_REFRESH_THRESHOLD=300000
+VITE_SESSION_TIMEOUT=3600000
+
+# ===================================================================
+# LOGGING CONFIGURATION
+# ===================================================================
+VITE_LOG_LEVEL=error
+VITE_ENABLE_CONSOLE_LOGS=false
+VITE_ENABLE_ERROR_REPORTING=true
+
+# ===================================================================
+# CACHE CONFIGURATION
+# ===================================================================
+VITE_CACHE_VERSION=v1.0.0
+VITE_CACHE_MAX_AGE=86400000
+VITE_STATIC_CACHE_ENABLED=true
+"@
+
+$frontendEnv | Out-File -FilePath ".env.production" -Encoding UTF8
+Write-Host "✓ Comprehensive frontend environment file created" -ForegroundColor Green
+```
+
+### 4. Environment Validation & Security
+
+#### Backend Environment Validation
+```powershell
+# Create environment validation script
+$validationScript = @"
+# Environment Validation Script
+param([string]`$EnvFile = "C:\inetpub\wwwroot\bebang-pack-meal\backend\.env")
+
+function Test-EnvVariable {
+    param(`$Name, `$Value, `$Required = `$true, `$MinLength = 0)
+    
+    if (`$Required -and [string]::IsNullOrEmpty(`$Value)) {
+        Write-Host "✗ `$Name is required but not set" -ForegroundColor Red
+        return `$false
+    }
+    
+    if (`$MinLength -gt 0 -and `$Value.Length -lt `$MinLength) {
+        Write-Host "✗ `$Name must be at least `$MinLength characters" -ForegroundColor Red
+        return `$false
+    }
+    
+    Write-Host "✓ `$Name is valid" -ForegroundColor Green
+    return `$true
+}
+
+Write-Host "Validating backend environment..." -ForegroundColor Cyan
+
+if (-not (Test-Path `$EnvFile)) {
+    Write-Host "✗ Environment file not found: `$EnvFile" -ForegroundColor Red
+    exit 1
+}
+
+# Parse environment variables
+`$envVars = @{}
+Get-Content `$EnvFile | ForEach-Object {
+    if (`$_ -match '^([^#][^=]+)=(.*)$') {
+        `$envVars[`$matches[1].Trim()] = `$matches[2].Trim()
+    }
+}
+
+# Validate critical variables
+`$valid = `$true
+`$valid = (Test-EnvVariable "NODE_ENV" `$envVars["NODE_ENV"] `$true 3) -and `$valid
+`$valid = (Test-EnvVariable "DATABASE_URL" `$envVars["DATABASE_URL"] `$true 20) -and `$valid
+`$valid = (Test-EnvVariable "JWT_SECRET" `$envVars["JWT_SECRET"] `$true 32) -and `$valid
+`$valid = (Test-EnvVariable "JWT_REFRESH_SECRET" `$envVars["JWT_REFRESH_SECRET"] `$true 32) -and `$valid
+
+# Check for insecure defaults
+if (`$envVars["JWT_SECRET"] -like "*generate-secure*") {
+    Write-Host "✗ JWT_SECRET contains default placeholder" -ForegroundColor Red
+    `$valid = `$false
+}
+
+if (`$envVars["DATABASE_URL"] -like "*password123*") {
+    Write-Host "⚠️  Database password appears to be default/weak" -ForegroundColor Yellow
+}
+
+if (`$valid) {
+    Write-Host "✓ Environment validation passed" -ForegroundColor Green
+} else {
+    Write-Host "✗ Environment validation failed" -ForegroundColor Red
+    exit 1
+}
+"@
+
+$validationScript | Out-File -FilePath "C:\inetpub\wwwroot\bebang-pack-meal\scripts\validate-env.ps1" -Encoding UTF8
+
+# Run validation
+PowerShell -File "C:\inetpub\wwwroot\bebang-pack-meal\scripts\validate-env.ps1"
+```
+
+### 5. Migration Troubleshooting
+
+#### Common Migration Issues & Solutions
+```powershell
+# Comprehensive migration troubleshooting
+Write-Host "Prisma Migration Troubleshooting Guide" -ForegroundColor Cyan
+
+# Check Prisma installation
+Write-Host "1. Checking Prisma installation..." -ForegroundColor Yellow
+npx prisma --version
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Installing Prisma..." -ForegroundColor Yellow
+    npm install prisma @prisma/client
+}
+
+# Validate schema
+Write-Host "2. Validating Prisma schema..." -ForegroundColor Yellow
+npx prisma validate
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "✗ Schema validation failed. Check prisma/schema.prisma" -ForegroundColor Red
+    exit 1
+}
+
+# Check database connection
+Write-Host "3. Testing database connection..." -ForegroundColor Yellow
+npx prisma db execute --stdin <<< "SELECT 1 as test;"
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓ Database connection successful" -ForegroundColor Green
+} else {
+    Write-Host "✗ Database connection failed" -ForegroundColor Red
+    Write-Host "Check DATABASE_URL in .env file" -ForegroundColor Yellow
+}
+
+# Check migration status
+Write-Host "4. Checking migration status..." -ForegroundColor Yellow
+npx prisma migrate status
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓ Database is up to date" -ForegroundColor Green
+} else {
+    Write-Host "⚠️  Migrations needed. Running migrate deploy..." -ForegroundColor Yellow
+    npx prisma migrate deploy
+}
+
+# Generate Prisma client
+Write-Host "5. Generating Prisma client..." -ForegroundColor Yellow
+npx prisma generate
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓ Prisma client generated successfully" -ForegroundColor Green
+} else {
+    Write-Host "✗ Client generation failed" -ForegroundColor Red
+}
+
+# Test client connection
+Write-Host "6. Testing Prisma client..." -ForegroundColor Yellow
+node -e "
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+prisma.\$connect()
+  .then(() => {
+    console.log('✓ Prisma client connected successfully');
+    return prisma.\$disconnect();
+  })
+  .catch(err => {
+    console.log('✗ Prisma client connection failed:', err.message);
+    process.exit(1);
+  });
+"
+
+Write-Host "Migration troubleshooting completed!" -ForegroundColor Green
+```
+
 
 ### 3. Install PM2 untuk Process Management
 ```powershell
@@ -686,16 +1313,103 @@ $backendScript | Out-File -FilePath "C:\inetpub\wwwroot\bebang-pack-meal\manage-
 # Navigate to frontend directory
 cd "C:\inetpub\wwwroot\bebang-pack-meal\frontend"
 
-# Create production environment file
+# Create production environment file dengan konfigurasi IP spesifik
 $frontendEnv = @"
 VITE_NODE_ENV=production
-VITE_API_BASE_URL=http://localhost/api
-VITE_WS_URL=ws://localhost:3001
+
+# API Configuration untuk IP spesifik
+VITE_API_BASE_URL=http://192.168.3.235/api
+VITE_WS_URL=ws://192.168.3.235:3001
+VITE_API_TIMEOUT=30000
+
+# Application Info
 VITE_APP_NAME=Bebang Pack Meal Portal
 VITE_APP_VERSION=1.0.0
+
+# Network Configuration
+VITE_SERVER_IP=192.168.3.235
+VITE_SERVER_PORT=80
+VITE_WS_PORT=3001
+
+# Feature Flags untuk production
+VITE_ENABLE_PWA=true
+VITE_ENABLE_OFFLINE_MODE=true
+VITE_ENABLE_NOTIFICATIONS=true
+VITE_ENABLE_DEBUG_MODE=false
+
+# Security Configuration
+VITE_CSP_ENABLED=true
+VITE_SECURE_HEADERS=true
 "@
 
 $frontendEnv | Out-File -FilePath ".env.production" -Encoding UTF8
+
+### 2. Update Axios Configuration untuk IP Spesifik
+
+Update file `frontend/src/lib/axios.ts` untuk menggunakan IP spesifik:
+
+```typescript
+// Konfigurasi base URL dari environment variable dengan fallback IP spesifik
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.3.235/api';
+
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  // Konfigurasi untuk network dengan latensi yang mungkin lebih tinggi
+  validateStatus: (status) => status < 500,
+  withCredentials: true,
+});
+
+// Add request interceptor untuk logging di development
+axiosInstance.interceptors.request.use(
+  (config) => {
+    if (import.meta.env.VITE_ENABLE_DEBUG_MODE === 'true') {
+      console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
+    }
+    return config;
+  },
+  (error) => {
+    console.error('API Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor untuk error handling
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === 'NETWORK_ERROR') {
+      console.error('Network Error - Check connection to 192.168.3.235');
+    }
+    return Promise.reject(error);
+  }
+);
+```
+
+### 3. Update WebSocket Configuration untuk IP Spesifik
+
+```typescript
+// Di file socket manager
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://192.168.3.235:3001';
+
+const socket = io(WS_URL, {
+  transports: ['websocket'],
+  upgrade: true,
+  rememberUpgrade: true,
+  // Konfigurasi untuk network dengan latensi tinggi
+  timeout: 20000,
+  retries: 3,
+  // Reconnection configuration
+  reconnection: true,
+  reconnectionDelay: 1000,
+  reconnectionAttempts: 5,
+  // Force WebSocket transport untuk stabilitas
+  forceNew: false,
+});
+```
 
 # Build for production
 npm run build
@@ -1236,18 +1950,198 @@ if ($process) { Stop-Process -Id $process.Id -Force }
 #### Backend (Node.js) Issues
 ```powershell
 # Check PM2 process status
-pm2 status
-pm2 logs bebang-backend
+pm2 logs bebang-backend --lines 50
 
 # Check if Node.js process is running
 Get-Process | Where-Object {$_.ProcessName -like "*node*"}
 
 # Test backend manually
 cd "C:\inetpub\wwwroot\bebang-pack-meal\backend"
-node dist/main.js
 
-# Check environment variables
-Get-Content .env
+# Verify environment variables
+Write-Host "Checking environment variables..." -ForegroundColor Cyan
+Get-Content .env | Select-String -Pattern "^[^#]" | ForEach-Object {
+    $key = $_.Line.Split('=')[0]
+    if ($key -in @('JWT_SECRET', 'JWT_REFRESH_SECRET', 'DATABASE_URL')) {
+        Write-Host "$key=***HIDDEN***" -ForegroundColor Gray
+    } else {
+        Write-Host $_.Line -ForegroundColor Gray
+    }
+}
+
+# Test database connection
+Write-Host "Testing database connection..." -ForegroundColor Cyan
+npx prisma db execute --stdin <<< "SELECT 1 as test;"
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓ Database connection successful" -ForegroundColor Green
+} else {
+    Write-Host "✗ Database connection failed" -ForegroundColor Red
+}
+
+# Test Prisma client
+Write-Host "Testing Prisma client..." -ForegroundColor Cyan
+node -e "
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+prisma.\$connect()
+  .then(() => {
+    console.log('✓ Prisma client connected successfully');
+    return prisma.\$disconnect();
+  })
+  .catch(err => {
+    console.log('✗ Prisma client connection failed:', err.message);
+    process.exit(1);
+  });
+"
+
+# Test backend manually
+Write-Host "Testing backend startup..." -ForegroundColor Cyan
+node dist/main.js &
+$backendPid = $!
+Start-Sleep -Seconds 5
+
+# Test health endpoint
+try {
+    $response = Invoke-WebRequest -Uri "http://localhost:3000/api/health" -UseBasicParsing -TimeoutSec 10
+    if ($response.StatusCode -eq 200) {
+        Write-Host "✓ Backend health check passed" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "✗ Backend health check failed: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Stop test backend
+if ($backendPid) {
+    Stop-Process -Id $backendPid -Force -ErrorAction SilentlyContinue
+}
+```
+
+#### Environment Variables Issues
+```powershell
+# Environment variables troubleshooting
+Write-Host "Troubleshooting environment variables..." -ForegroundColor Cyan
+
+# Check if .env file exists
+$envFile = "C:\inetpub\wwwroot\bebang-pack-meal\backend\.env"
+if (-not (Test-Path $envFile)) {
+    Write-Host "✗ .env file not found at $envFile" -ForegroundColor Red
+    Write-Host "Creating basic .env file..." -ForegroundColor Yellow
+    
+    Copy-Item ".env.example" ".env" -ErrorAction SilentlyContinue
+    if (-not (Test-Path ".env")) {
+        Write-Host "✗ .env.example not found. Creating minimal .env..." -ForegroundColor Red
+        @"
+NODE_ENV=production
+PORT=300
+DATABASE_URL=postgresql://bebang_user:bebang_password_123@localhost:5432/bebang_pack_meal
+JWT_SECRET=change-this-to-secure-secret
+JWT_REFRESH_SECRET=change-this-to-secure-refresh-secret
+"@ | Out-File -FilePath ".env" -Encoding UTF8
+    }
+}
+
+# Validate required environment variables
+$envContent = Get-Content $envFile
+$requiredVars = @('NODE_ENV', 'PORT', 'DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET')
+
+foreach ($var in $requiredVars) {
+    $found = $envContent | Select-String "^$var="
+    if ($found) {
+        Write-Host "✓ $var is configured" -ForegroundColor Green
+    } else {
+        Write-Host "✗ $var is missing" -ForegroundColor Red
+    }
+}
+
+# Check for insecure default values
+$insecurePatterns = @{
+    'JWT_SECRET' = @('change-this', 'your-super-secure', 'secret', 'generate-secure')
+    'JWT_REFRESH_SECRET' = @('change-this', 'your-super-secure', 'secret', 'generate-secure')
+    'DATABASE_URL' = @('password123', 'admin')
+}
+
+foreach ($var in $insecurePatterns.Keys) {
+    $value = ($envContent | Select-String "^$var=" | ForEach-Object { $_.Line.Split('=')[1] })
+    if ($value) {
+        foreach ($pattern in $insecurePatterns[$var]) {
+            if ($value -like "*$pattern*") {
+                Write-Host "⚠️  $var contains potentially insecure value" -ForegroundColor Yellow
+            }
+        }
+    }
+}
+```
+
+#### Prisma Migration Issues
+```powershell
+# Prisma troubleshooting
+Write-Host "Troubleshooting Prisma issues..." -ForegroundColor Cyan
+
+# Check Prisma installation
+if (-not (Get-Command npx -ErrorAction SilentlyContinue)) {
+    Write-Host "✗ npx not found. Please install Node.js" -ForegroundColor Red
+    exit 1
+}
+
+# Check Prisma CLI
+npx prisma --version
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Installing Prisma CLI..." -ForegroundColor Yellow
+    npm install prisma @prisma/client
+}
+
+# Check schema file
+if (-not (Test-Path "prisma\schema.prisma")) {
+    Write-Host "✗ Prisma schema file not found" -ForegroundColor Red
+} else {
+    Write-Host "✓ Prisma schema file found" -ForegroundColor Green
+}
+
+# Validate schema
+Write-Host "Validating Prisma schema..." -ForegroundColor Yellow
+npx prisma validate
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓ Prisma schema is valid" -ForegroundColor Green
+} else {
+    Write-Host "✗ Prisma schema validation failed" -ForegroundColor Red
+}
+
+# Check migration status
+Write-Host "Checking migration status..." -ForegroundColor Yellow
+npx prisma migrate status
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓ Database is up to date" -ForegroundColor Green
+} else {
+    Write-Host "⚠️  Database migrations needed" -ForegroundColor Yellow
+    
+    # Apply pending migrations
+    Write-Host "Applying pending migrations..." -ForegroundColor Yellow
+    npx prisma migrate deploy
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✓ Migrations applied successfully" -ForegroundColor Green
+    } else {
+        Write-Host "✗ Migration failed" -ForegroundColor Red
+    }
+}
+
+# Test Prisma client generation
+Write-Host "Testing Prisma client generation..." -ForegroundColor Yellow
+npx prisma generate
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓ Prisma client generated successfully" -ForegroundColor Green
+} else {
+    Write-Host "✗ Prisma client generation failed" -ForegroundColor Red
+}
+
+# Check if seeding is needed
+Write-Host "Checking database seeding..." -ForegroundColor Yellow
+if (Test-Path "prisma\seed.ts") {
+    # Test seeding
+    npx prisma db seed --preview-feature 2>&1 | Write-Host
+} else {
+    Write-Host "⚠️  No seed file found" -ForegroundColor Yellow
+}
 ```
 
 #### IIS Issues
@@ -1335,17 +2229,90 @@ server {
 
 ### 3. Security Hardening
 
-#### Windows Firewall Rules
+#### Windows Firewall Rules untuk IP Spesifik 192.168.3.235/23
 ```powershell
-# Configure Windows Firewall
-# Allow specific ports
-netsh advfirewall firewall add rule name="Bebang HTTP" dir=in action=allow protocol=TCP localport=80
-netsh advfirewall firewall add rule name="Bebang HTTPS" dir=in action=allow protocol=TCP localport=443
-netsh advfirewall firewall add rule name="Bebang PostgreSQL" dir=in action=allow protocol=TCP localport=5432
+# Configure Windows Firewall dengan konfigurasi IP spesifik
+# Allow specific ports dengan IP binding
 
-# Block unnecessary ports
-netsh advfirewall firewall add rule name="Block Direct Backend" dir=in action=block protocol=TCP localport=3000
-netsh advfirewall firewall add rule name="Block Direct WebSocket" dir=in action=block protocol=TCP localport=3001
+# HTTP/HTTPS untuk IP spesifik
+netsh advfirewall firewall add rule name="Bebang HTTP - IP Specific" dir=in action=allow protocol=TCP localport=80 localip=192.168.3.235
+netsh advfirewall firewall add rule name="Bebang HTTPS - IP Specific" dir=in action=allow protocol=TCP localport=443 localip=192.168.3.235
+
+# PostgreSQL untuk IP spesifik
+netsh advfirewall firewall add rule name="Bebang PostgreSQL - IP Specific" dir=in action=allow protocol=TCP localport=5432 localip=192.168.3.235
+
+# Allow akses dari network range 192.168.2.0/23
+netsh advfirewall firewall add rule name="Allow Network Range Access - HTTP" dir=in action=allow protocol=TCP localport=80 remoteip=192.168.2.0/23
+netsh advfirewall firewall add rule name="Allow Network Range Access - HTTPS" dir=in action=allow protocol=TCP localport=443 remoteip=192.168.2.0/23
+
+# Development ports (hanya dari localhost)
+netsh advfirewall firewall add rule name="Dev Backend Access" dir=in action=allow protocol=TCP localport=3000 remoteip=127.0.0.1
+netsh advfirewall firewall add rule name="Dev WebSocket Access" dir=in action=allow protocol=TCP localport=3001 remoteip=127.0.0.1
+
+# Block direct access dari luar network range
+netsh advfirewall firewall add rule name="Block External HTTP" dir=in action=block protocol=TCP localport=80 remoteip=0.0.0.0-192.168.1.255,192.168.4.0-255.255.255.255
+netsh advfirewall firewall add rule name="Block External HTTPS" dir=in action=block protocol=TCP localport=443 remoteip=0.0.0.0-192.168.1.255,192.168.4.0-255.255.255.255
+
+# Block direct backend/websocket access (kecuali localhost)
+netsh advfirewall firewall add rule name="Block Direct Backend External" dir=in action=block protocol=TCP localport=3000 remoteip=0.0.0.0-126.255.255.255,128.0.0.0-255.255.255.255
+netsh advfirewall firewall add rule name="Block Direct WebSocket External" dir=in action=block protocol=TCP localport=3001 remoteip=0.0.0.0-126.255.255.255,128.0.0.0-255.255.255.255
+
+# Advanced security rules
+netsh advfirewall firewall add rule name="Allow Ping from Network Range" dir=in action=allow protocol=icmpv4:8,any remoteip=192.168.2.0/23
+```
+
+#### Advanced Network Security Configuration
+```powershell
+# Create advanced firewall configuration script
+$firewallScript = @"
+# Advanced Firewall Configuration for IP 192.168.3.235/23
+param([string]`$Action = "Configure")
+
+function Configure-NetworkSecurity {
+    Write-Host "Configuring network security for 192.168.3.235/23..." -ForegroundColor Cyan
+    
+    # Remove existing rules (if any)
+    netsh advfirewall firewall delete rule name="Bebang HTTP - IP Specific" 2>nul
+    netsh advfirewall firewall delete rule name="Bebang HTTPS - IP Specific" 2>nul
+    
+    # Add comprehensive rules
+    netsh advfirewall firewall add rule name="Bebang-AllowHTTP-NetworkRange" dir=in action=allow protocol=TCP localport=80 remoteip=192.168.2.0/23 localip=192.168.3.235
+    netsh advfirewall firewall add rule name="Bebang-AllowHTTPS-NetworkRange" dir=in action=allow protocol=TCP localport=443 remoteip=192.168.2.0/23 localip=192.168.3.235
+    
+    # Log dropped packets
+    netsh advfirewall set allprofiles logging droppedconnections enable
+    netsh advfirewall set allprofiles logging filename "C:\Windows\System32\LogFiles\Firewall\pfirewall.log"
+    
+    Write-Host "✓ Network security configured successfully" -ForegroundColor Green
+}
+
+function Test-NetworkSecurity {
+    Write-Host "Testing network security configuration..." -ForegroundColor Cyan
+    
+    # Test port accessibility
+    `$ports = @(80, 443, 3000, 3001, 5432)
+    foreach (`$port in `$ports) {
+        `$result = Test-NetConnection -ComputerName "192.168.3.235" -Port `$port -WarningAction SilentlyContinue
+        if (`$result.TcpTestSucceeded) {
+            Write-Host "✓ Port `$port accessible" -ForegroundColor Green
+        } else {
+            Write-Host "✗ Port `$port not accessible" -ForegroundColor Red
+        }
+    }
+}
+
+switch (`$Action) {
+    "Configure" { Configure-NetworkSecurity }
+    "Test" { Test-NetworkSecurity }
+    "Both" { Configure-NetworkSecurity; Test-NetworkSecurity }
+    default { Write-Host "Usage: -Action [Configure|Test|Both]" }
+}
+"@
+
+$firewallScript | Out-File -FilePath "C:\inetpub\wwwroot\bebang-pack-meal\scripts\configure-network-security.ps1" -Encoding UTF8
+
+# Run the configuration
+PowerShell -File "C:\inetpub\wwwroot\bebang-pack-meal\scripts\configure-network-security.ps1" -Action Both
 ```
 
 #### File Permissions

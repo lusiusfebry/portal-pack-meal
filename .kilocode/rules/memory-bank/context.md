@@ -431,6 +431,98 @@ Pencapaian utama Phase 7 (Frontend):
 
 Hasil: Frontend foundation untuk authentication & routing telah selesai dan stabil; siap integrasi order management pada Phase 8.
 
+## Alur Kerja Dapur & RBAC Updates (COMPLETED)
+
+### Perbaikan RBAC untuk Role Dapur
+
+#### Masalah yang Diperbaiki
+- **403 Forbidden Error**: Role dapur sebelumnya tidak dapat mengakses endpoint `/api/orders/pending-approvals`
+- **Business Logic Gap**: Dapur perlu melihat permintaan approval yang mereka ajukan untuk tracking dan follow-up
+- **Inconsistent Access**: Administrator dapat mengakses endpoint tetapi dapur tidak, padahal keduanya terlibat dalam workflow approval
+
+#### Solusi yang Diimplementasikan
+- **Update RBAC Configuration**: Menambahkan role 'dapur' ke decorator `@Roles` pada endpoint `getPendingApprovals()` di [OrdersController](backend/src/orders/orders.controller.ts:88)
+- **Access Control Alignment**: Sekarang kedua role ('administrator' dan 'dapur') dapat mengakses endpoint pending approvals sesuai kebutuhan business logic
+- **Validation Scripts**: Membuat skrip test untuk memverifikasi perbaikan:
+  - [test-dapur-pending-approvals.js](scripts/test-dapur-pending-approvals.js:1) - Test khusus untuk akses dapur
+  - [test-pending-approvals-endpoint.js](scripts/test-pending-approvals-endpoint.js:1) - Test komprehensif untuk semua role
+
+#### Status Perbaikan
+- ✅ **COMPLETED**: Role dapur sekarang dapat mengakses `/api/orders/pending-approvals` dengan token yang valid
+- ✅ **VERIFIED**: Administrator tetap dapat mengakses endpoint tanpa gangguan
+- ✅ **TESTED**: Skrip test konfirmasi kedua role dapat mengakses endpoint sesuai harapan
+
+### Alur Kerja Dapur yang Komprehensif
+
+#### Tanggung Jawab Role Dapur
+1. **Monitoring Antrian Pesanan**
+   - Melihat pesanan berstatus "Menunggu", "Diproses", dan "Siap"
+   - Mengupdate status pesanan sesuai tahap produksi
+   - Dashboard real-time di [DapurDashboardPage.tsx](frontend/src/pages/dapur/DapurDashboardPage.tsx:1)
+
+2. **Manajemen Status Pesanan**
+   - **Menunggu → Diproses**: Saat mulai mengerjakan pesanan
+   - **Diproses → Siap**: Saat pesanan selesai dibuat dan siap diantar
+   - **Siap → Complete**: Saat pesanan telah diambil/diantar
+
+3. **Workflow Approval untuk Penolakan/Perubahan**
+   - **Request Rejection**: Ajukan penolakan pesanan dengan alasan jelas
+   - **Request Edit**: Ajukan perubahan jumlah pesanan dengan justifikasi
+   - **Tracking Approval**: Monitor status permintaan approval yang diajukan
+   - Akses ke pending approvals untuk melihat status permintaan mereka
+
+#### Endpoint-endpoint yang Dapat Diakses Dapur
+1. **GET /api/orders** - Melihat daftar pesanan (filter berdasarkan role dapur)
+2. **GET /api/orders/:id** - Melihat detail pesanan spesifik
+3. **PATCH /api/orders/:id/status** - Mengupdate status pesanan
+4. **POST /api/orders/:id/request-rejection** - Mengajukan penolakan pesanan
+5. **POST /api/orders/:id/request-edit** - Mengajukan perubahan jumlah pesanan
+6. **GET /api/orders/pending-approvals** - Melihat daftar permintaan approval (termasuk yang diajukan sendiri)
+
+#### Alur Approval/Request Rejection yang Melibatkan Dapur
+1. **Inisiasi Permintaan**:
+   - Dapur mengajukan penolakan/edit melalui endpoint khusus
+   - Sistem mengubah status pesanan menjadi "MENUNGGU_PERSETUJUAN"
+   - Notifikasi terkirim ke administrator via WebSocket
+
+2. **Review Administrator**:
+   - Administrator menerima notifikasi di dashboard
+   - Administrator dapat menyetujui atau menolak permintaan
+   - Keputusan administrator mempengaruhi status akhir pesanan
+
+3. **Resolusi**:
+   - **Jika disetujui**: Status berubah sesuai permintaan (DITOLAK atau kembali ke MENUNGGU dengan jumlah baru)
+   - **Jika ditolak**: Status kembali ke status sebelumnya
+   - Notifikasi terkirim ke dapur tentang keputusan administrator
+
+#### Validasi Business Logic
+- **Hak Akses Sesuai Peran**: Dapur hanya dapat mengajukan permintaan, tidak dapat menyetujui
+- **Audit Trail Lengkap**: Semua perubahan status tercatat dengan user dan timestamp
+- **Real-time Notifications**: WebSocket events untuk update status instan
+- **Consistent UI**: Frontend menampilkan informasi yang konsisten dengan hak akses backend
+
+### Integrasi Frontend-Backend untuk Alur Dapur
+
+#### Dashboard Dapur
+- [DapurDashboardPage.tsx](frontend/src/pages/dapur/DapurDashboardPage.tsx:1) menampilkan:
+  - Statistik pesanan hari ini (Menunggu, Diproses, Siap)
+  - Jumlah permintaan approval yang pending
+  - Preview antrian pesanan
+  - Tombol navigasi ke antrian lengkap dan persetujuan
+
+#### Navigasi & Routing
+- `/orders/queue` - Halaman antrian lengkap dengan Kanban board
+- `/orders/pending-approvals` - Halaman persetujuan untuk dapur
+- Routing dengan guard peran di [ProtectedRoute.tsx](frontend/src/components/auth/ProtectedRoute.tsx:1)
+
+#### API Integration
+- [orders.api.ts](frontend/src/services/api/orders.api.ts:1) menyediakan fungsi:
+  - `getOrders()` - Mengambil daftar pesanan
+  - `getPendingApprovals()` - Mengambil daftar permintaan approval
+  - `updateOrderStatus()` - Mengupdate status pesanan
+  - `requestRejection()` - Mengajukan penolakan
+  - `requestEdit()` - Mengajukan perubahan
+
 ## Status Aplikasi Saat Ini — Production Ready
 
 ### Pencapaian Utama Phase 9 (Production Readiness)
@@ -507,6 +599,11 @@ Hasil: Frontend foundation untuk authentication & routing telah selesai dan stab
 - Token Refresh: Axios interceptor diperkuat dengan localStorage fallback
 - TypeScript Errors: TS5097 di frontend/main.tsx diperbaiki
 - Development Server: npm run dev berjalan normal tanpa startup errors
+
+### RBAC Issues (Terbaru)
+- 403 Forbidden untuk role dapur: Diperbaiki dengan menambahkan 'dapur' ke decorator @Roles pada endpoint pending-approvals
+- Akses tidak konsisten: Diverifikasi dengan skrip test khusus untuk memastikan kedua role (administrator dan dapur) dapat mengakses endpoint
+- Business logic gap: Dapur sekarang dapat melihat permintaan approval yang mereka ajukan untuk tracking
 
 ## Team & Resources
 
@@ -602,6 +699,7 @@ Aplikasi Bebang Pack Meal Portal telah selesai sepenuhnya dan siap untuk product
 5. **Performance yang dioptimasi** dengan caching strategies, lazy loading, dan bundle optimization
 6. **Security yang diperkuat** dengan proper authentication, authorization, and audit logging
 7. **Monitoring yang siap** dengan structured logging dan health check endpoints
+8. **RBAC yang telah diperbaiki** untuk role dapur dengan akses yang sesuai dengan business logic
 
 ## Status Deployment — Siap Produksi ✅ READY
 
@@ -707,6 +805,7 @@ Ringkasan implementasi frontend Phase 8:
 ### Status & Fokus Saat Ini
 - ✅ Phase 8: Selesai — End-to-end fitur frontend (dashboard per role, order management lengkap, approval workflow, real-time notifications, admin tools, UI components lanjutan, routing & guards).
 - ✅ Phase 9: Selesai — PWA enhancements, performance optimization, accessibility hardening, production build & deployment readiness.
+- ✅ RBAC Dapur: Selesai — Perbaikan akses role dapur ke endpoint pending-approvals sesuai business logic.
 - 🎯 Fokus Berikutnya (Post-Production): Maintenance, monitoring, user training, dan continuous improvement.
 
 ### Catatan Integrasi Real-time
@@ -804,18 +903,21 @@ Catatan integrasi:
 - Frontend Role-specific Pages: seluruh dashboard dan halaman per peran tersedia (Admin, Employee, Dapur, Delivery)
 - Master Data Management: halaman Master Data tersedia untuk administrator dengan integrasi API backend
 - PWA & Offline: perbaikan infinite redirect loop telah selesai di [frontend/vite.config.ts](frontend/vite.config.ts:88-107) dengan sinkronisasi indikator offline di [AppShell.tsx](frontend/src/components/layout/AppShell.tsx:36-53)
+- RBAC untuk Dapur: perbaikan akses ke endpoint pending-approvals dengan validasi business logic yang tepat
 
 ### Update Terbaru — API Smoke Tests (Baru Ditambahkan)
 
 Untuk mempercepat verifikasi stabilitas API inti, ditambahkan skrip smoke test berbasis Node 18 fetch:
 - [get-departments.js](scripts/api-smoke/get-departments.js:1) — login ke `/api/auth/login` menggunakan kredensial admin, kemudian `GET /master-data/departments`. Menampilkan status dan body respons untuk sanity check. Variabel lingkungan: `API_BASE_URL`, `ADMIN_NIK`, `ADMIN_PASSWORD`.
 - [create-department.js](scripts/api-smoke/create-department.js:1) — login lalu `POST /master-data/departments` dengan payload minimal. Menangani konflik 409 sebagai kondisi non-fatal (departemen sudah ada).
+- [test-dapur-pending-approvals.js](scripts/test-dapur-pending-approvals.js:1) — test khusus untuk verifikasi akses dapur ke endpoint pending-approvals setelah perbaikan RBAC
+- [test-pending-approvals-endpoint.js](scripts/test-pending-approvals-endpoint.js:1) — test komprehensif untuk semua role yang dapat mengakses endpoint pending-approvals
 Cara pakai (contoh):
 - Windows CMD: `node scripts\\api-smoke\\get-departments.js` lalu `node scripts\\api-smoke\\create-department.js`
 - PowerShell: `node scripts/api-smoke/get-departments.js`
 - Bash: `node scripts/api-smoke/get-departments.js`
 Catatan:
-- Skrip ini melengkapi E2E Playwright dengan cek cepat endpoint autentikasi dan master-data di lingkungan dev.
+- Skrip ini melengkapi E2E Playwright dengan cek cepat endpoint autentikasi, master-data, dan RBAC dapur di lingkungan dev.
 - Output mencetak status HTTP dan body untuk diagnosis cepat bila ada regresi.
 
 

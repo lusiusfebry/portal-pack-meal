@@ -80,12 +80,12 @@ export class OrdersController {
 
   /**
    * GET /api/orders/pending-approvals
-   * Get pending approval requests (Admin only)
+   * Get pending approval requests (Admin and Dapur)
    *
    * Note: Must be defined BEFORE @Get(':id') to avoid route conflict
    */
   @Get('pending-approvals')
-  @Roles('administrator')
+  @Roles('administrator', 'dapur')
   async getPendingApprovals(): Promise<any[]> {
     return this.ordersService.getPendingApprovals();
   }
